@@ -1,0 +1,18 @@
+server:
+  port: 80
+#  ssl:
+#    key-store: classpath:keystore.p12
+#    key-store-password: 123456
+#    keyStoreType: PKCS12
+#    keyAlias: tomcat
+    
+spring:
+  application:
+    name: screencap
+
+
+logging:
+  file:
+    path: /spring/log/screencap
+  pattern:
+    console: "%d - %msg%n"
