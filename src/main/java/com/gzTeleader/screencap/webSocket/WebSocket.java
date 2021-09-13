@@ -1,7 +1,8 @@
 package com.gzTeleader.screencap.webSocket;
 
-import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.websocket.OnClose;
@@ -16,6 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import com.gzTeleader.screencap.utils.FileUtils;
+
 @ServerEndpoint(value = "/ws/{type}")
 @Component
 public class WebSocket {
@@ -27,7 +30,7 @@ public class WebSocket {
     
     private static  List<Session> sessionList = new ArrayList<Session>();
     
-    private static  Session masterSession = null;
+//    private static  Session masterSession = null;
 
     /**
      * 连接建立成功调用的方法
@@ -59,7 +62,7 @@ public class WebSocket {
      * @param session
      */
     @OnMessage
-    public void onMessage(String message, Session s) {
+    public void onMessage(String message, @PathParam("type") String type,Session s) {
         try {
             logger.info(message);
             for(Session session : sessionList) {
@@ -74,9 +77,16 @@ public class WebSocket {
     }
     
     @OnMessage
-    public void onMessage(byte[] message,  Session s) {
+    public void onMessage(byte[] arrayBuffer, @PathParam("type") String type,Session s) {
         try {
-            logger.info(message.toString());
+        	logger.info(type);
+        	FileUtils.saveByte(arrayBuffer, "C:\\Users\\mj\\Desktop\\test\\temporary\\"+(new Date()).getTime());
+            ByteBuffer byteBuffer =ByteBuffer.wrap(arrayBuffer);
+            for(Session session : sessionList) {
+                if (session.isOpen()) {
+					session.getBasicRemote().sendBinary(byteBuffer );
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

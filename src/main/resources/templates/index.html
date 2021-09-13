@@ -48,7 +48,7 @@
 <body>
 Welcome<br/>
 <p><button id="start">Start Capture</button> <button id="stop">Stop Capture</button></p>
-<video id="video" autoplay></video>
+<video id="video" autoplay autobuffer></video>
 <br>
 <!-- <strong>Log:</strong> -->
 <!-- <br> -->
@@ -60,16 +60,16 @@ Welcome<br/>
 
 <script type="text/javascript">
     var websocket = null;
-//     var wsGroupId = "20191009170924631538723061895168";
-    var type = "main"
-    //判断当前浏览器是否支持WebSocket
-    if('WebSocket' in window){
-        websocket = new WebSocket("ws://192.168.20.241:80/ws/" + type);
+    var type = "media"
+    if(websocket == null){
+    	//判断当前浏览器是否支持WebSocket
+        if('WebSocket' in window){
+            websocket = new WebSocket("ws://192.168.20.241:80/ws/" + type);
+        }
+        else{
+            alert('Not support websocket')
+        }
     }
-    else{
-        alert('Not support websocket')
-    }
-
     //连接发生错误的回调方法
     websocket.onerror = function(){
         setMessageInnerHTML("error");
@@ -83,6 +83,9 @@ Welcome<br/>
     //接收到消息的回调方法
     websocket.onmessage = function(event){
         setMessageInnerHTML(event.data);
+//         videoPlay(event.data);
+        recordedChunks.push(event.data);
+        console.info(recordedChunks);
     }
 
     //连接关闭的回调方法
@@ -111,12 +114,11 @@ Welcome<br/>
         websocket.send(message);
     }
     const videoElem = document.getElementById("video");
-//     const logElem = document.getElementById("log");
     const startElem = document.getElementById("start");
     const stopElem = document.getElementById("stop");
-
-    // Options for getDisplayMedia()
-
+    let recordedChunks = [];
+    let index = 0;
+    
     var displayMediaOptions = {
       video: {
         cursor: "always"
@@ -132,23 +134,36 @@ Welcome<br/>
     stopElem.addEventListener("click", function(evt) {
       stopCapture();
     }, false); 
-
-//     console.log = msg => logElem.innerHTML += `${msg}<br>`;
-//     console.error = msg => logElem.innerHTML += `<span class="error">${msg}</span><br>`;
-//     console.warn = msg => logElem.innerHTML += `<span class="warn">${msg}<span><br>`;
-//     console.info = msg => logElem.innerHTML += `<span class="info">${msg}</span><br>`; 
-
+    
     async function startCapture() {
-//    logElem.innerHTML = "";
       try {
         let localStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
-        videoElem.srcObject = localStream
-        dumpOptionsInfo();
+        videoElem.srcObject = localStream;
+
+//         var mediaSource = new MediaSource;
+//         videoElem.src = URL.createObjectURL(mediaSource);
+//         mediaSource.addEventListener('sourceopen', sourceOpen);
         
+//         function sourceOpen () {
+//       	    var mediaSource = this;
+//       	    console.info(mediaSource);
+//       	    sourceBuffer = mediaSource.addSourceBuffer('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
+//       	    sourceBuffer.addEventListener('updateend', function () {
+//       	        mediaSource.endOfStream();
+//       	        videoElem.play();
+//       	    });
+      	    
+//         }
+        
+        //通过websocket发送录屏数据到后端
         let mediaRecorder = new MediaRecorder(localStream);
-        mediaRecorder.ondataavailable = function(blob) {
-          console.log(blob.data);
-          websocket.send(blob.data);
+        
+        mediaRecorder.ondataavailable = function(blobEvent) {
+            var data = blobEvent.data;
+            console.info(data);
+            websocket.send(data);
+            console.info(videoElem);
+//             sourceBuffer.appendBuffer(data); // buf is the arraybuffer to store the video data
         };
         mediaRecorder.start(1000);
       } catch(err) {
@@ -157,11 +172,31 @@ Welcome<br/>
     } 
 
     function stopCapture(evt) {
-      let tracks = videoElem.srcObject.getTracks();
 
+    	  
+      let tracks = videoElem.srcObject.getTracks();
       tracks.forEach(track => track.stop());
       videoElem.srcObject = null;
+      
+  	videoElem.controls = true;
+  	videoElem.muted = false;
+  	  let blob = new Blob(recordedChunks, {type: "video/x-matroska;codecs=avc1,opus"})
+  	  videoElem.src = window.URL.createObjectURL(blob)
+  	  videoElem.play();
     } 
+//     var t1 = window.setInterval(videoPlay,1000);
+//     let videoBlob = new Blob(recordedChunks, {type: "video/x-matroska;codecs=avc1,opus"});
+//     videoElem.src = window.URL.createObjectURL(videoBlob);
+//     function videoPlay(){
+//     	if(recordedChunks!=null&&recordedChunks.length>index){
+// //     		if(index!=0){
+// //     			recordedChunks.splice(0,1);
+// //     		}
+// //     		index++;
+    		
+//       	    videoElem.play();
+//     	}
+//     }
 
     function dumpOptionsInfo() {
       const videoTrack = videoElem.srcObject.getVideoTracks()[0];
